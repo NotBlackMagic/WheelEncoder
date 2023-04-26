@@ -8,6 +8,7 @@
 #include "fsl_gpio.h"
 #include "fsl_lpi2c.h"
 #include "fsl_lpuart.h"
+#include "fsl_mscan.h"
 #include "fsl_port.h"
 
 //Output Pin Defines
@@ -32,16 +33,19 @@
 
 //Interface properties
 #define DEVICE_UART_BAUDRATE			115200
-#define DEVICE_I2C_ADDR   				0x02
-#define DEVICE_CAN_ADDR					0x00
+#define DEVICE_I2C_ADDR   				'N'
 #define DEVICE_ID         				'N'
+#define DEVICE_TX_RATE_MS				100		//Rate to send data over UART/CAN, every N ms
 
 void Delay(uint32_t ms);
 
 typedef enum Register {
 	EncoderID = 0x00,
-	EncoderData = 0x01,
-	EncoderPPR = 0x02
+	EncoderLeftHigh = 0x01,
+	EncoderRightHigh = 0x02,
+	EncoderLeftLow = 0x03,
+	EncoderRightLow = 0x04,
+	EncoderPPR = 0x05
 } Register;
 
 typedef enum EncoderMode {
@@ -151,19 +155,83 @@ static void lpi2c_slave_callback(LPI2C_Type *base, lpi2c_slave_transfer_t *xfer,
 				case EncoderID:
 					g_slave_buff[txIndex++] = DEVICE_ID;
 					break;
-				case EncoderData:
+				case EncoderLeftHigh:
+					//First: Data for Encoder Left High input
 					g_slave_buff[txIndex++] = encoderLeftHigh.tickCount >> 24;
 					g_slave_buff[txIndex++] = encoderLeftHigh.tickCount >> 16;
 					g_slave_buff[txIndex++] = encoderLeftHigh.tickCount >> 8;
 					g_slave_buff[txIndex++] = encoderLeftHigh.tickCount;
 					g_slave_buff[txIndex++] = encoderLeftHigh.rpm >> 8;
 					g_slave_buff[txIndex++] = encoderLeftHigh.rpm;
+					//Second: Data for Encoder Right High input
 					g_slave_buff[txIndex++] = encoderRightHigh.tickCount >> 24;
 					g_slave_buff[txIndex++] = encoderRightHigh.tickCount >> 16;
 					g_slave_buff[txIndex++] = encoderRightHigh.tickCount >> 8;
 					g_slave_buff[txIndex++] = encoderRightHigh.tickCount;
 					g_slave_buff[txIndex++] = encoderRightHigh.rpm >> 8;
 					g_slave_buff[txIndex++] = encoderRightHigh.rpm;
+					//Second: Data for Encoder Left Low input
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount;
+					g_slave_buff[txIndex++] = encoderLeftLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderLeftLow.rpm;
+					//Second: Data for Encoder Right Low input
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm;
+					break;
+				case EncoderRightHigh:
+					//Second: Data for Encoder Right High input
+					g_slave_buff[txIndex++] = encoderRightHigh.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderRightHigh.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderRightHigh.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderRightHigh.tickCount;
+					g_slave_buff[txIndex++] = encoderRightHigh.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderRightHigh.rpm;
+					//Second: Data for Encoder Left Low input
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount;
+					g_slave_buff[txIndex++] = encoderLeftLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderLeftLow.rpm;
+					//Second: Data for Encoder Right Low input
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm;
+					break;
+				case EncoderLeftLow:
+					//Second: Data for Encoder Left Low input
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderLeftLow.tickCount;
+					g_slave_buff[txIndex++] = encoderLeftLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderLeftLow.rpm;
+					//Second: Data for Encoder Right Low input
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm;
+					break;
+				case EncoderRightLow:
+					//Second: Data for Encoder Right Low input
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 24;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 16;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.tickCount;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm >> 8;
+					g_slave_buff[txIndex++] = encoderRightLow.rpm;
 					break;
 				case EncoderPPR:
 					g_slave_buff[txIndex++] = encoderLeftHigh.ticksPerEvolution >> 8;
@@ -192,6 +260,107 @@ static void lpi2c_slave_callback(LPI2C_Type *base, lpi2c_slave_transfer_t *xfer,
 		}
 		default: {
 			g_SlaveCompletionFlag = false;
+			break;
+		}
+	}
+}
+
+mscan_handle_t mscanHandle;
+mscan_mb_transfer_t txXfer, rxXfer;
+mscan_frame_t txFrame;
+int8_t canTXFrameStatus = 0;
+volatile bool txComplete = false;
+volatile bool rxComplete = false;
+static void mscan_callback(MSCAN_Type *base, mscan_handle_t *handle, status_t status, void *userData) {
+	switch (status) {
+		case kStatus_MSCAN_RxIdle: {
+			//MSCAN RX event
+			rxComplete = true;
+			break;
+		}
+		case kStatus_MSCAN_TxIdle: {
+			//MSCAN TX event
+			txComplete = true;
+			switch(canTXFrameStatus) {
+				case 1:
+					//Second: Data for Encoder Right High input
+					//Prepare CAN TX Frame
+					//CAN Frame IDs (11-Bit long)
+					//Constructed as follows: (DEVICE_ID << 3) + Register
+					txFrame.ID_Type.ID = (DEVICE_ID << 3) + EncoderRightHigh;
+					txFrame.format = kMSCAN_FrameFormatStandard;
+					txFrame.type= kMSCAN_FrameTypeData;
+					//Frame payload
+					txFrame.dataByte0 = encoderRightHigh.tickCount >> 24;
+					txFrame.dataByte1 = encoderRightHigh.tickCount >> 16;
+					txFrame.dataByte2 = encoderRightHigh.tickCount >> 8;
+					txFrame.dataByte3 = encoderRightHigh.tickCount;
+					txFrame.dataByte4 = encoderRightHigh.rpm >> 8;
+					txFrame.dataByte5 = encoderRightHigh.rpm;
+					txFrame.DLR = 6;
+					//Send data through Tx Message Buffer
+					txXfer.frame = &txFrame;
+					txXfer.mask  = kMSCAN_TxEmptyInterruptEnable;
+					MSCAN_TransferSendNonBlocking(MSCAN, &mscanHandle, &txXfer);
+					txComplete = false;
+					canTXFrameStatus = 2;
+					break;
+				case 2:
+					//Third: Data for Encoder Left Low input
+					//Prepare CAN TX Frame
+					//CAN Frame IDs (11-Bit long)
+					//Constructed as follows: (DEVICE_ID << 3) + Register
+					txFrame.ID_Type.ID = (DEVICE_ID << 3) + EncoderLeftLow;
+					txFrame.format = kMSCAN_FrameFormatStandard;
+					txFrame.type= kMSCAN_FrameTypeData;
+					//Frame payload
+					txFrame.dataByte0 = encoderLeftLow.tickCount >> 24;
+					txFrame.dataByte1 = encoderLeftLow.tickCount >> 16;
+					txFrame.dataByte2 = encoderLeftLow.tickCount >> 8;
+					txFrame.dataByte3 = encoderLeftLow.tickCount;
+					txFrame.dataByte4 = encoderLeftLow.rpm >> 8;
+					txFrame.dataByte5 = encoderLeftLow.rpm;
+					txFrame.DLR = 6;
+					//Send data through Tx Message Buffer
+					txXfer.frame = &txFrame;
+					txXfer.mask  = kMSCAN_TxEmptyInterruptEnable;
+					MSCAN_TransferSendNonBlocking(MSCAN, &mscanHandle, &txXfer);
+					txComplete = false;
+					canTXFrameStatus = 3;
+					break;
+				case 3:
+					//Forth: Data for Encoder Right Low input
+					//Prepare CAN TX Frame
+					//CAN Frame IDs (11-Bit long)
+					//Constructed as follows: (DEVICE_ID << 3) + Register
+					txFrame.ID_Type.ID = (DEVICE_ID << 3) + EncoderRightLow;
+					txFrame.format = kMSCAN_FrameFormatStandard;
+					txFrame.type= kMSCAN_FrameTypeData;
+					//Frame payload
+					txFrame.dataByte0 = encoderRightLow.tickCount >> 24;
+					txFrame.dataByte1 = encoderRightLow.tickCount >> 16;
+					txFrame.dataByte2 = encoderRightLow.tickCount >> 8;
+					txFrame.dataByte3 = encoderRightLow.tickCount;
+					txFrame.dataByte4 = encoderRightLow.rpm >> 8;
+					txFrame.dataByte5 = encoderRightLow.rpm;
+					txFrame.DLR = 6;
+					//Send data through Tx Message Buffer
+					txXfer.frame = &txFrame;
+					txXfer.mask  = kMSCAN_TxEmptyInterruptEnable;
+					MSCAN_TransferSendNonBlocking(MSCAN, &mscanHandle, &txXfer);
+					txComplete = false;
+					canTXFrameStatus = 4;
+					break;
+				case 4:
+					canTXFrameStatus = 0;
+					return;
+				default:
+					canTXFrameStatus = 0;
+					return;
+			}
+			break;
+		}
+		default: {
 			break;
 		}
 	}
@@ -226,7 +395,7 @@ int main(void) {
 	GPIO_PinInit(GPIO_INPUT_HAL_LL_PORT, GPIO_INPUT_HAL_LL_PIN, &gpioInputConfig);			//HAL Sensor Left Low
 	GPIO_PinInit(GPIO_INPUT_HAL_RH_PORT, GPIO_INPUT_HAL_RH_PIN, &gpioInputConfig);			//HAL Sensor Right High
 	GPIO_PinInit(GPIO_INPUT_HAL_RL_PORT, GPIO_INPUT_HAL_RL_PIN, &gpioInputConfig);			//HAL Sensor Right Low
-	GPIO_PinInit(GPIO_INPUT_CAN_ERR_PORT, GPIO_INPUT_CAN_ERR_PIN, &gpioInputConfig);			//CAN (TJA1463) Error
+	GPIO_PinInit(GPIO_INPUT_CAN_ERR_PORT, GPIO_INPUT_CAN_ERR_PIN, &gpioInputConfig);		//CAN (TJA1463) Error
 
 	//Init GPIO Interrupts
 	PORT_SetPinInterruptConfig(PORTA, GPIO_INPUT_HAL_LH_PIN, kPORT_InterruptFallingEdge);
@@ -239,7 +408,11 @@ int main(void) {
 	//Set GPIO Output Pins
 	GPIO_PinWrite(GPIO_OUTPUT_LED_PORT, GPIO_OUTPUT_LED_PIN, 0);				//LED Output
 	GPIO_PinWrite(GPIO_OUTPUT_CAN_STB_PORT, GPIO_OUTPUT_CAN_STB_PIN, 0);		//CAN (TJA1463) Standby
-	GPIO_PinWrite(GPIO_OUTPUT_CAN_EN_PORT, GPIO_OUTPUT_CAN_EN_PIN, 0);			//CAN (TJA1463) Enable
+	GPIO_PinWrite(GPIO_OUTPUT_CAN_EN_PORT, GPIO_OUTPUT_CAN_EN_PIN, 0);			//CAN (TJA1463) Disabled
+
+	//CAN transceiver (TJA1463) to normal mode
+	GPIO_PinWrite(GPIO_OUTPUT_CAN_STB_PORT, GPIO_OUTPUT_CAN_STB_PIN, 1);
+	GPIO_PinWrite(GPIO_OUTPUT_CAN_EN_PORT, GPIO_OUTPUT_CAN_EN_PIN, 1);
 
 	//Init UART
 	/*
@@ -285,6 +458,34 @@ int main(void) {
 
 	}
 
+	//Init (MS)CAN
+	/*
+	 * mscanConfig.baudRate = 1000000U;
+	 * mscanConfig.enableTimer = false;
+	 * mscanConfig.enableWakeup = false;
+	 * mscanConfig.clkSrc = kMSCAN_ClkSrcOsc;
+	 * mscanConfig.enableLoopBack = false;
+	 * mscanConfig.enableListen = false;
+	 * mscanConfig.busoffrecMode = kMSCAN_BusoffrecAuto;
+	 * mscanConfig.filterConfig.filterMode = kMSCAN_Filter32Bit;
+	 */
+	mscan_config_t mscanConfig;
+	MSCAN_GetDefaultConfig(&mscanConfig);
+	//Clock source configuration
+	mscanConfig.clkSrc = kMSCAN_ClkSrcBus;
+	//Free running timer (timestamp timer) configuration
+	mscanConfig.enableTimer = true;
+	//Acceptance filter configuration
+	mscanConfig.filterConfig.u32IDAR0 = MSCAN_RX_MB_STD_MASK(0x123);
+	mscanConfig.filterConfig.u32IDAR1 = MSCAN_RX_MB_STD_MASK(0x123);
+	//To receive standard identifiers in 32-bit filter mode, program the last three bits ([2:0]) in the mask registers CANIDMR1 and CANIDMR5 to don't care.
+	mscanConfig.filterConfig.u32IDMR0 = 0x00070000;
+	mscanConfig.filterConfig.u32IDMR1 = 0x00070000;
+	//Initialize MSCAN module
+	MSCAN_Init(MSCAN, &mscanConfig, CLOCK_GetFreq(kCLOCK_BusClk));
+	//Create MSCAN handle structure and set call back function
+	MSCAN_TransferCreateHandle(MSCAN, &mscanHandle, mscan_callback, NULL);
+
 	//Send over UART
 	txBufferLength = sprintf(txBuffer, "Wheel Encoder Boot Complete!");
 	LPUART_WriteBlocking(LPUART0, txBuffer, txBufferLength);
@@ -311,12 +512,35 @@ int main(void) {
 
 	uint8_t ledState = 0;
 	while(1) {
-		txBufferLength = sprintf(txBuffer, "LH: %d, LL: %d, RH: %d, RL: %d\n", encoderLeftHigh.tickCount, encoderLeftLow.tickCount, encoderRightHigh.tickCount, encoderRightLow.tickCount);
+		//Send over UART and (MS)CAN at a rate of 1/DEVICE_TX_RATE_MS (every DEVICE_TX_RATE_MS)
+		txBufferLength = sprintf(txBuffer, "LH: %d, RH: %d, LL: %d, RL: %d\n", encoderLeftHigh.tickCount, encoderLeftLow.tickCount, encoderRightHigh.tickCount, encoderRightLow.tickCount);
 		LPUART_WriteBlocking(LPUART0, txBuffer, txBufferLength);
+
+		//First: Data for Encoder Left High input
+		//Prepare CAN TX Frame
+		//CAN Frame IDs (11-Bit long)
+		//Constructed as follows: (DEVICE_ID << 3) + Register
+		txFrame.ID_Type.ID = (DEVICE_ID << 3) + EncoderLeftHigh;
+		txFrame.format = kMSCAN_FrameFormatStandard;
+		txFrame.type= kMSCAN_FrameTypeData;
+		//Frame payload
+		txFrame.dataByte0 = encoderLeftHigh.tickCount >> 24;
+		txFrame.dataByte1 = encoderLeftHigh.tickCount >> 16;
+		txFrame.dataByte2 = encoderLeftHigh.tickCount >> 8;
+		txFrame.dataByte3 = encoderLeftHigh.tickCount;
+		txFrame.dataByte4 = encoderLeftHigh.rpm >> 8;
+		txFrame.dataByte5 = encoderLeftHigh.rpm;
+		txFrame.DLR = 6;
+		//Send data through Tx Message Buffer
+		txXfer.frame = &txFrame;
+		txXfer.mask  = kMSCAN_TxEmptyInterruptEnable;
+		MSCAN_TransferSendNonBlocking(MSCAN, &mscanHandle, &txXfer);
+		txComplete = false;
+		canTXFrameStatus = 1;
 
 		GPIO_PinWrite(GPIO_OUTPUT_LED_PORT, GPIO_OUTPUT_LED_PIN, ledState);
 		ledState = !ledState;
-		Delay(1000);
+		Delay(DEVICE_TX_RATE_MS);
 	}
 }
 
